@@ -4,44 +4,47 @@ open Mirage
    MODE=crunch (or nothing): use static filesystem via crunch
    MODE=fat: use FAT and block device (run ./make-fat-images.sh)
  *)
-let mode =
-  try match String.lowercase (Unix.getenv "FS") with
+let fs =
+  let mode = try match String.lowercase (Unix.getenv "FS") with
     | "fat" -> `Fat
     | _     -> `Crunch
-  with Not_found ->
-    `Crunch
-
-let fat_ro dir =
-  kv_ro_of_fs (fat_of_files ~dir ())
-
-let fs = match mode with
+    with Not_found -> `Crunch
+  in
+  let fat_ro dir = kv_ro_of_fs (fat_of_files ~dir ()) in
+  match mode with
   | `Fat    -> fat_ro "./htdocs"
   | `Crunch -> crunch "./htdocs"
 
-let net =
-  try match Sys.getenv "NET" with
-    | "direct" -> `Direct
-    | "socket" -> `Socket
-    | _        -> `Direct
-  with Not_found -> `Direct
-
-let dhcp =
-  try match Sys.getenv "DHCP" with
-    | "" -> false
-    | _  -> true
-  with Not_found -> false
-
 let stack console =
+  let net =
+    try match Sys.getenv "NET" with
+      | "direct" -> `Direct
+      | "socket" -> `Socket
+      | _        -> `Direct
+    with Not_found -> `Direct
+  in
+  let dhcp =
+    try match Sys.getenv "DHCP" with
+      | "" -> false
+      | _  -> true
+    with Not_found -> false
+  in
   match net, dhcp with
   | `Direct, true  -> direct_stackv4_with_dhcp console tap0
   | `Direct, false -> direct_stackv4_with_default_ipv4 console tap0
   | `Socket, _     -> socket_stackv4 console [Ipaddr.V4.any]
 
+let port =
+  try match Sys.getenv "PORT" with
+    | "" -> 80
+    | s  -> int_of_string s
+  with Not_found -> 80
+
 let server =
-  http_server 80 (stack default_console)
+  http_server port (stack default_console)
 
 let main =
-  foreign "Dispatch.Main" (console @-> kv_ro @-> http @-> job)
+  foreign "Unikernel.Main" (console @-> kv_ro @-> http @-> job)
 
 let () =
   add_to_ocamlfind_libraries ["re.str"];

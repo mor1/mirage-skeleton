@@ -41,17 +41,16 @@ module Main (C: CONSOLE) (N: NETWORK) = struct
     >>= fun tcp ->
 
     N.listen net (
-      E.input
+      E.input e
         ~ipv4:(
-          I.input
+          I.input i
             ~tcp:(
               T.input tcp ~listeners:
                 (function
                   | 80 -> Some (fun flow ->
                       let dst, dst_port = T.get_dest flow in
                       C.log_s c
-                        (green "new tcp from %s %d"
-                          (Ipaddr.V4.to_string dst) dst_port
+                        (green "new tcp from %s %d" (Ipaddr.V4.to_string dst) dst_port
                         )
                       >>= fun () ->
 
@@ -60,7 +59,7 @@ module Main (C: CONSOLE) (N: NETWORK) = struct
                       | `Ok b ->
                         C.log_s c
                           (yellow "read: %d\n%s"
-                            (Cstruct.len b) (Cstruct.to_string b)
+                             (Cstruct.len b) (Cstruct.to_string b)
                           )
                         >>= fun () ->
                         T.close flow
@@ -69,15 +68,13 @@ module Main (C: CONSOLE) (N: NETWORK) = struct
                   | _ -> None
                 ))
             ~udp:(
-              U.input ~listeners:
+              U.input udp ~listeners:
                 (fun ~dst_port ->
                    C.log c (blue "udp packet on port %d" dst_port);
                    D.listen dhcp ~dst_port)
-                udp
             )
             ~default:(fun ~proto ~src ~dst _ -> return ())
-            i
         )
-        ~ipv6:(fun b -> C.log_s c (yellow "ipv6")) e
+        ~ipv6:(fun b -> C.log_s c (yellow "ipv6"))
     )
 end
