@@ -1,24 +1,14 @@
-_build
-.*.swp
-.merlin
-*.xe
-*.xml
-backend.ml
-main.ml
-myocamlbuild.ml
+**/_build
+**/log
+
 **/Makefile
 !lwt/Makefile
 
-# Generated outputs
-*.native
-*.cfg
-*.xen
-*.map
-*.img
-*.xl
-*.xl.in
-static*.ml
-static*.mli
-mir-*
-**/log
-make-fat*-image.sh
+**/main.ml
+**/*.xl.in
+**/*.x[el]
+**/*.xml
+**/static*.ml
+**/static*.mli
+**/mir-*
+**/*.native
