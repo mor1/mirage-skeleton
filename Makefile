@@ -1,7 +1,11 @@
 -include Makefile.config
 
-TESTS = console network stackv4 ethifv4 io_page lwt ping static_website dns \
-        conduit_server conduit_server_manual static_website_tls http-fetch dhcp
+TESTS = console lwt io_page \
+        block kv_ro kv_ro_crunch \
+        network stackv4 ethifv4 netif-forward ping ping6 dhcp dns \
+        conduit_server conduit_server_manual \
+        static_website static_website_tls http-fetch \
+        # xen
 
 
 ifdef WITH_TRACING
@@ -16,9 +20,9 @@ CLEANS  = $(patsubst %, %-clean,     $(TESTS))
 all: build
 
 configure: $(CONFIGS)
-build: $(BUILDS) lwt-build
+build: $(BUILDS)
 run: $(RUNS)
-clean: $(CLEANS) lwt-clean
+clean: $(CLEANS)
 
 ## lwt special cased
 lwt: lwt-clean lwt-build
@@ -45,6 +49,6 @@ lwt-clean:
 ## create raw device for block_test
 UNAME_S := $(shell uname -s)
 block_test/disk.raw:
-	[ "$(PLATFORM)" = "Darwin" ] &&						\
-		hdiutil create -sectors 12 -layout NONE disk.raw && \
-		mv disk.raw.dmg block_test/disk.raw
+	[ "$(PLATFORM)" = "Darwin" ] && \
+	  hdiutil create -sectors 12 -layout NONE disk.raw && \
+	  mv disk.raw.dmg block_test/disk.raw
