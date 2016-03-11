@@ -4,11 +4,17 @@
 **/Makefile
 !lwt/Makefile
 
-**/main.ml
-**/*.xl.in
-**/*.x[el]
-**/*.xml
-**/static*.ml
-**/static*.mli
-**/mir-*
-**/*.native
+# Generated outputs
+*.native
+*.cfg
+*.xen
+*.map
+*.img
+*.xl
+*.xl.in
+static*.ml
+static*.mli
+mir-*
+**/log
+make-fat*-image.sh
+*_gen.ml

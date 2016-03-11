@@ -1,12 +1,8 @@
 -include Makefile.config
 
-TESTS = console lwt io_page \
-        block kv_ro kv_ro_crunch \
-        network stackv4 ethifv4 netif-forward ping ping6 dhcp dns \
-        conduit_server conduit_server_manual \
-        static_website static_website_tls http-fetch \
-        # xen
-
+TESTS = console network stackv4 ethifv4 io_page lwt ping static_website dns \
+        conduit_server conduit_server_manual static_website_tls http-fetch \
+        dhcp hello
 
 ifdef WITH_TRACING
 TESTS += tracing
@@ -37,13 +33,13 @@ lwt-clean:
 
 ## default tests
 %-configure:
-	$(MIRAGE) configure $*/config.ml --$(MODE) $(FLAGS)
+	$(MIRAGE) configure -f $*/config.ml -t $(MODE) $(FLAGS)
 
 %-build: %-configure
 	cd $* && $(MAKE)
 
 %-clean:
-	$(MIRAGE) clean $*/config.ml
+	$(MIRAGE) clean -f $*/config.ml
 	$(RM) log
 
 ## create raw device for block_test
