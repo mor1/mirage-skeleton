@@ -2,7 +2,7 @@
 
 TESTS = console network stackv4 ethifv4 io_page lwt ping static_website dns \
         conduit_server conduit_server_manual static_website_tls http-fetch \
-        dhcp hello
+        dhcp hello block
 
 ifdef WITH_TRACING
 TESTS += tracing
@@ -11,6 +11,7 @@ endif
 CONFIGS = $(patsubst %, %-configure, $(TESTS))
 BUILDS  = $(patsubst %, %-build,     $(TESTS))
 RUNS    = $(patsubst %, %-run,       $(TESTS))
+TESTRUN = $(patsubst %, %-testrun,   $(TESTS))
 CLEANS  = $(patsubst %, %-clean,     $(TESTS))
 
 all: build
@@ -18,6 +19,7 @@ all: build
 configure: $(CONFIGS)
 build: $(BUILDS)
 run: $(RUNS)
+testrun: $(TESTRUN)
 clean: $(CLEANS)
 
 ## lwt special cased
@@ -31,9 +33,12 @@ lwt-build:
 lwt-clean:
 	$(MAKE) -C lwt clean
 
+lwt-testrun:
+	@ :
+
 ## default tests
 %-configure:
-	$(MIRAGE) configure -f $*/config.ml -t $(MODE) $(FLAGS)
+	$(MIRAGE) configure -f $*/config.ml --$(MODE) $(MIRAGE_FLAGS)
 
 %-build: %-configure
 	cd $* && $(MAKE)
@@ -41,6 +46,9 @@ lwt-clean:
 %-clean:
 	$(MIRAGE) clean -f $*/config.ml
 	$(RM) log
+
+%-testrun: %-build
+	$(SUDO) sh ./testrun.sh $*
 
 ## create raw device for block_test
 UNAME_S := $(shell uname -s)

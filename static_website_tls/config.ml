@@ -1,35 +1,28 @@
 open Mirage
 
-(* Use `FS` to set the underlying filesystem:
-   FS=crunch (or nothing): use static filesystem via crunch
-   FS=fat: use FAT and block device (run ./make-fat-images.sh)
- *)
-let mode =
-  try match String.lowercase (Unix.getenv "FS") with
-    | "fat" -> `Fat
-    | _     -> `Crunch
-  with Not_found ->
-    `Crunch
-
-let fat_ro dir =
-  kv_ro_of_fs (fat_of_files ~dir ())
-
-let fs = match mode with
-  | `Fat    -> fat_ro "./htdocs"
-  | `Crunch -> crunch "./htdocs"
-
 let stack = generic_stackv4 default_console tap0
 
-let http_srv = http_server (conduit_direct ~tls:true stack)
+(* storage configuration *)
 
-let main =
-  let libraries = ["re.str"] in
-  let packages = ["re"] in
-  foreign
-    ~libraries ~packages
-    "Dispatch.Main" (console @-> kv_ro @-> http @-> job)
+let data = generic_kv_ro "htdocs"
+let keys = generic_kv_ro "tls"
+
+let server =
+  foreign "Dispatch.HTTPS"
+    ( http @-> kv_ro @-> kv_ro @-> clock @-> job)
+
+let my_https =
+  http_server @@ conduit_direct ~tls:true stack
 
 let () =
-  register "www" [
-    main $ default_console $ fs $ http_srv
+  let libraries = ["uri"; "tls"; "tls.mirage"; "mirage-http"; "mirage-logs"; "magic-mime"] in
+  let packages = [ "uri"; "tls"; "mirage-http"; "mirage-logs"; "magic-mime"] in
+  register "https"
+    ~packages ~libraries
+  [
+    server
+    $ my_https
+    $ data
+    $ keys
+    $ default_clock
   ]

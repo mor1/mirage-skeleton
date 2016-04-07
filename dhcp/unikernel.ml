@@ -1,5 +1,5 @@
 open V1_LWT
-open Lwt
+open Lwt.Infix
 
 (* IP Configuration, all you need besides dhcpd.conf. *)
 let ipaddr = Ipaddr.V4.of_string_exn "192.168.1.5"
@@ -25,28 +25,35 @@ module Main (C: CONSOLE) (KV: KV_RO) (N: NETWORK) (Clock : V1.CLOCK) = struct
   let of_interest dest net =
     Macaddr.compare dest (N.mac net) = 0 || not (Macaddr.is_unicast dest)
 
-  let input_dhcp c net config subnet buf =
+  let input_dhcp c net config leases buf =
     let open Dhcp_server.Input in
     match (Dhcp_wire.pkt_of_buf buf (Cstruct.len buf)) with
-    | `Error e -> Lwt.return (log c (red "Can't parse packet: %s" e))
+    | `Error e -> log c (red "Can't parse packet: %s" e);
+      Lwt.return leases
     | `Ok pkt ->
-      match (input_pkt config subnet pkt (Clock.time ())) with
-      | Silence -> Lwt.return_unit
-      | Warning w -> Lwt.return (log c (yellow "%s" w))
-      | Error e -> Lwt.return (log c (red "%s" e))
-      | Reply reply ->
+      match (input_pkt config leases pkt (Clock.time ())) with
+      | Silence -> Lwt.return leases
+      | Update leases ->
+        log c (blue "Received packet %s - updated lease database" (Dhcp_wire.pkt_to_string pkt));
+        Lwt.return leases
+      | Warning w ->
+        log c (yellow "%s" w);
+        Lwt.return leases
+      | Error e ->
+        log c (red "%s" e);
+        Lwt.return leases
+      | Reply (reply, leases) ->
         log c (blue "Received packet %s" (Dhcp_wire.pkt_to_string pkt));
         N.write net (Dhcp_wire.buf_of_pkt reply)
         >>= fun () ->
         log c (blue "Sent reply packet %s" (Dhcp_wire.pkt_to_string reply));
-        Lwt.return_unit
+        Lwt.return leases
 
   let start c kv net _ =
-    let or_error c name fn t =
-      fn t
-      >>= function
-      | `Error e -> fail (Failure ("Error starting " ^ name))
-      | `Ok t -> return t
+    let or_error _c name fn t =
+      fn t >>= function
+      | `Error _e -> Lwt.fail (Failure ("Error starting " ^ name))
+      | `Ok t     -> Lwt.return t
     in
     (* Read the config file *)
     or_error c "Kv.size" (KV.size kv) "dhcpd.conf"
@@ -66,8 +73,8 @@ module Main (C: CONSOLE) (KV: KV_RO) (N: NETWORK) (Clock : V1.CLOCK) = struct
     >>= fun () ->
 
     (* Build a dhcp server *)
-    let config = Dhcp_server.Config.parse conf [(ipaddr, N.mac net)] in
-    let subnet = List.hd config.Dhcp_server.Config.subnets in
+    let config = Dhcp_server.Config.parse conf (ipaddr, N.mac net) in
+    let leases = ref (Dhcp_server.Lease.make_db ()) in
     let listener = N.listen net (fun buf ->
         match (Wire_structs.parse_ethernet_frame buf) with
         | Some (proto, dst, payload) when of_interest dst net ->
@@ -75,7 +82,9 @@ module Main (C: CONSOLE) (KV: KV_RO) (N: NETWORK) (Clock : V1.CLOCK) = struct
            | Some Wire_structs.ARP -> A.input a payload
            | Some Wire_structs.IPv4 ->
              if Dhcp_wire.is_dhcp buf (Cstruct.len buf) then
-               input_dhcp c net config subnet buf
+               input_dhcp c net config !leases buf >>= fun new_leases ->
+               leases := new_leases;
+               Lwt.return_unit
              else
                Lwt.return_unit
            | _ -> Lwt.return_unit)
