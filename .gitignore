@@ -12,8 +12,11 @@
 *.img
 *.xl
 *.xl.in
+*.xe
+*_libvirt.xml
 static*.ml
 static*.mli
+main.ml
 mir-*
 **/log
 make-fat*-image.sh
